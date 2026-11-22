@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+# Test double for `age` (passphrase mode only). NOT encryption: the "passphrase" is recorded in
+# the first line of the file. Used by test/run.sh so no real secret or passphrase is involved.
+#   SHIM_PW      the passphrase the caller "types" (default: pw)
+#   SHIM_PW_ENC  the passphrase to encrypt with, when different (used to test `passwd`)
+pw="${SHIM_PW:-pw}"
+enc="${SHIM_PW_ENC:-$pw}"
+case "${1:-}" in
+  --version) echo "age-shim"; exit 0 ;;
+  -p)
+    [ "${2:-}" = "-o" ] && [ -n "${3:-}" ] || { echo "shim: expected: age -p -o FILE" >&2; exit 2; }
+    { echo "SHIM:$enc"; base64; } > "$3"
+    ;;
+  -d)
+    f="${2:-}"; [ -f "$f" ] || { echo "age: error: no such file: $f" >&2; exit 1; }
+    have=$(head -1 "$f")
+    if [ "$have" != "SHIM:$pw" ] && [ "$have" != "SHIM:$enc" ]; then
+      echo "age: error: incorrect passphrase" >&2; exit 1
+    fi
+    tail -n +2 "$f" | base64 -d
+    ;;
+  *) echo "shim: unsupported: $*" >&2; exit 2 ;;
+esac
