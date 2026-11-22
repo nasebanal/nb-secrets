@@ -9,10 +9,13 @@
 # the file instead of encrypting. Commands that need a terminal run in a pseudo-terminal
 # (test/pty.py, needs python3).
 # Exits 0 if every check passes, 1 otherwise.
+
+# SC2016: the single-quoted bash -c snippets below are meant to expand in the child shell.
+# shellcheck disable=SC2016
 set -uo pipefail
 
 case "${1:-}" in
-  -h|--help) sed -n '2,/^set -uo pipefail/{/^set -uo pipefail/!p;}' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+  -h|--help) sed -n '2,/^$/{/^$/!p;}' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
 esac
 
 here=$(cd "$(dirname "$0")" && pwd)
@@ -22,7 +25,7 @@ trap 'rm -rf "$work"' EXIT
 export PATH="$here/shim:$PATH"
 export NB_SECRETS_DIR="$work/secrets"
 mkdir -m 700 "$NB_SECRETS_DIR"
-cd "$work"
+cd "$work" || exit 1
 
 pass=0; fail=0
 ok()   { pass=$((pass + 1)); printf '  ok    %s\n' "$1"; }
@@ -68,7 +71,7 @@ pty "$SECRET1\n" "'$NBS' set '$F' API_TOKEN"
 check "set creates a new file" rc_is 0
 check "set reports added" has "added: API_TOKEN"
 check "set never prints the value" bash -c '! printf "%s" "$1" | grep -qF "$2"' _ "$out" "$SECRET1"
-check "file mode is 600" bash -c '[ "$(stat -f %Lp "$1" 2>/dev/null || stat -c %a "$1")" = 600 ]' _ "$F"
+check "file mode is 600" bash -c '[ "$(stat -c %a "$1" 2>/dev/null || stat -f %Lp "$1")" = 600 ]' _ "$F"
 pty "$SECRET2\n" "'$NBS' set '$F' DB_PASSWORD"
 check "set adds a second variable" has "added: DB_PASSWORD"
 pty "" "'$NBS' list '$F'"

@@ -32,3 +32,14 @@ jobs:
           bash --version | head -1
           python3 --version
           test/run.sh
+
+  shellcheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # shellcheck is preinstalled on ubuntu-latest.
+      - name: shellcheck
+        run: |
+          shellcheck --version
+          shellcheck bin/nb-secrets test/run.sh test/shim/age
