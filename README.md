@@ -58,7 +58,7 @@ Plaintext `.env` files and shell profiles are where secrets leak: into a reposit
 brew install age
 
 # 2. put the script on your PATH
-git clone git@github.com:nasebanal/nb-secrets.git
+git clone https://github.com/nasebanal/nb-secrets.git
 ln -s "$PWD/nb-secrets/bin/nb-secrets" ~/.local/bin/nb-secrets    # any directory on PATH
 
 # 3. create a secret file: paste the lines, then press Ctrl-D (the plaintext never touches the disk)
