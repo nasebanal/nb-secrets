@@ -12,6 +12,7 @@ Keep secrets in passphrase-encrypted files and hand them to a command only when 
 - [File format](#file-format)
 - [Limits](#limits)
 - [Testing](#testing)
+- [Security](#security)
 - [License](#license)
 
 ## 🚀 Overview
@@ -127,6 +128,10 @@ test/run.sh
 Needs `python3` (a small pseudo-terminal helper, `test/pty.py`). Runs the whole suite against a test double of `age` (`test/shim/age`: it records the passphrase in the file, it does **not** encrypt) inside a pseudo-terminal, so no real secret and no real passphrase is involved. It covers every command, the refusals (no terminal, wrong passphrase, bad names) and that values never appear in the output.
 
 Cryptography itself is `age`'s. A short manual check against the real `age` is in `test/INTEGRATION.md`; run it after changing how `nb-secrets` calls `age`.
+
+## 🔐 Security
+
+See [SECURITY.md](SECURITY.md) for what is in scope and how to report a vulnerability privately.
 
 ## 📄 License
 
