@@ -52,6 +52,12 @@ SECRET2='second value $with#chars'
 echo "help and usage"
 out=$("$NBS" -h); rc=$?
 check "-h prints usage on stdout, exit 0" bash -c '[ '"$rc"' -eq 0 ] && printf "%s" "$1" | grep -q "^Usage:"' _ "$out"
+check "-h starts with Usage, then the description line (emoji, NASEBANAL Secrets, one line)" bash -c 'printf "%s" "$1" | head -1 | grep -q "^Usage: nb-secrets <command>" && printf "%s" "$1" | grep -q "^🔐 NASEBANAL Secrets - keep secrets in passphrase-encrypted files"' _ "$out"
+check "-h shows Usage, Also runs as nb secrets, the description, Commands and Options in that order" bash -c 'ln() { printf "%s\n" "$1" | grep -n -E "$2" | head -1 | cut -d: -f1; }; u=$(ln "$1" "^Usage:"); a=$(ln "$1" "^Also runs as: nb secrets"); d=$(ln "$1" "NASEBANAL Secrets - "); c=$(ln "$1" "^Commands:"); o=$(ln "$1" "^Options:"); [ -n "$u" ] && [ "$u" -lt "$a" ] && [ "$a" -lt "$d" ] && [ "$d" -lt "$c" ] && [ "$c" -lt "$o" ]' _ "$out"
+out=$(NB_PLUGIN_NAME="nb secrets" "$NBS" -h); rc=$?
+check "run through nb (NB_PLUGIN_NAME): the name shown is nb secrets, with no Also-runs-as line" bash -c 'printf "%s" "$1" | head -1 | grep -q "^Usage: nb secrets <command>" && printf "%s" "$1" | grep -q "^🔐 NASEBANAL Secrets - " && ! printf "%s" "$1" | grep -q "Also runs as" && ! printf "%s" "$1" | grep -q "nb-secrets"' _ "$out"
+out=$(NB_PLUGIN_NAME='"'"'x/y; rm'"'"' "$NBS" -h); rc=$?
+check "an NB_PLUGIN_NAME other than exactly nb secrets is ignored" bash -c 'printf "%s" "$1" | grep -q "^Usage: nb-secrets <command>"' _ "$out"
 out=$("$NBS" --version); rc=$?
 check "--version" bash -c 'printf "%s" "$1" | grep -q "^nb-secrets "' _ "$out"
 out=$("$NBS" 2>&1); rc=$?
