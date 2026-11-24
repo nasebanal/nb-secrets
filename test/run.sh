@@ -59,6 +59,31 @@ check "no arguments: usage, exit 1" rc_is 1
 out=$("$NBS" bogus 2>&1); rc=$?
 check "unknown command: exit 1" rc_is 1
 
+echo "install"
+inst="$work/inst"
+out=$("$NBS" --install "$inst/bin" 2>&1); rc=$?
+check "--install links the script into DIR (created if missing), exit 0" bash -c '[ '"$rc"' -eq 0 ] && [ -L "$1/bin/nb-secrets" ] && printf "%s" "$2" | grep -q "^Linked "' _ "$inst" "$out"
+check "the link points at this script" bash -c '[ "$(cd "$(dirname "$1/bin/nb-secrets")" && cd "$(dirname "$(readlink "$1/bin/nb-secrets")")" && pwd)" = "$(cd "$(dirname "$2")" && pwd)" ]' _ "$inst" "$NBS"
+check "--install warns when DIR is not on PATH" bash -c 'printf "%s" "$1" | grep -q "is not on your PATH"' _ "$out"
+out=$("$inst/bin/nb-secrets" --install "$inst/bin" 2>&1); rc=$?
+check "--install is idempotent, also when run through the link" bash -c '[ '"$rc"' -eq 0 ] && printf "%s" "$1" | grep -q "^Already linked"' _ "$out"
+out=$(PATH="$inst/bin:$PATH" "$NBS" --install "$inst/bin" 2>&1)
+check "--install prints no PATH note when DIR is on PATH" bash -c '! printf "%s" "$1" | grep -q "PATH"' _ "$out"
+out=$("$inst/bin/nb-secrets" --version 2>&1); rc=$?
+check "the linked command runs" bash -c '[ '"$rc"' -eq 0 ] && printf "%s" "$1" | grep -q "^nb-secrets "' _ "$out"
+mkdir -p "$inst/other"; printf 'not ours\n' > "$inst/other/nb-secrets"
+out=$("$NBS" --install "$inst/other" 2>&1); rc=$?
+check "--install refuses to replace a file it did not make" bash -c '[ '"$rc"' -eq 1 ] && printf "%s" "$1" | grep -q "already exists" && [ "$(cat "$2/other/nb-secrets")" = "not ours" ]' _ "$out" "$inst"
+mkdir -p "$inst/elsewhere"; ln -s /nonexistent/nb-secrets "$inst/elsewhere/nb-secrets"
+out=$("$NBS" --install "$inst/elsewhere" 2>&1); rc=$?
+check "--install refuses to replace a link to somewhere else (even a dangling one)" bash -c '[ '"$rc"' -eq 1 ] && [ "$(readlink "$1/elsewhere/nb-secrets")" = /nonexistent/nb-secrets ]' _ "$inst"
+out=$(HOME="$inst/home" "$NBS" --install 2>&1); rc=$?
+check "--install without DIR uses ~/.local/bin" bash -c '[ '"$rc"' -eq 0 ] && [ -L "$1/home/.local/bin/nb-secrets" ]' _ "$inst"
+out=$("$NBS" --install a b 2>&1); rc=$?
+check "--install with too many arguments: usage, exit 1" rc_is 1
+out=$("$NBS" -h); 
+check "-h lists --install" bash -c 'printf "%s" "$1" | grep -q -- "--install"' _ "$out"
+
 echo "terminal requirement"
 out=$("$NBS" set "$F" X </dev/null 2>&1); rc=$?
 check "set refuses without a terminal" bash -c '[ '"$rc"' -ne 0 ] && printf "%s" "$1" | grep -q "interactive terminal"' _ "$out"
