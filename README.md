@@ -76,6 +76,8 @@ nb-secrets set ~/.secrets/deploy.env.age NEW_TOKEN             # add or replace 
 nb-secrets doctor
 ```
 
+With the [`nb` command](https://github.com/nasebanal/nb-cli) (0.15.0 or later) installed, every command above also runs as `nb secrets ...` (`nb` runs `nb-<name>` from your PATH), and `nb -h` lists it: `nb secrets list ~/.secrets/deploy.env.age` is the same as `nb-secrets list ~/.secrets/deploy.env.age`. `nb-secrets` itself needs neither `nb` nor Node.
+
 Moving from a plaintext shell file you already use: encrypt it (`age -p -o ~/.secrets/x.env.age < old.env`), then `nb-secrets compare old.env ~/.secrets/x.env.age` and expect `OK` on every line before you delete the old file.
 
 ## 📖 Commands
