@@ -59,7 +59,7 @@ brew install age
 
 # 2. put the script on your PATH
 git clone https://github.com/nasebanal/nb-secrets.git
-ln -s "$PWD/nb-secrets/bin/nb-secrets" ~/.local/bin/nb-secrets    # any directory on PATH
+nb-secrets/bin/nb-secrets --install      # links it into ~/.local/bin (or a directory you name); put that on your PATH
 
 # 3. create a secret file: paste the lines, then press Ctrl-D (the plaintext never touches the disk)
 mkdir -m 700 -p ~/.secrets
@@ -90,6 +90,7 @@ Every command answers `-h`.
 | `delete <file.age> NAME` | Remove one variable after a y/N prompt |
 | `passwd <file.age>` | Change the passphrase: current, new twice, new once more to verify; replaces the file only if the re-read content matches |
 | `compare <old-shell-file> <file.age>` | Per variable: `OK` / `DIFF` / `MISSING-IN-OLD` by SHA-256 of the values; prints no value |
+| `--install [DIR]` | Link this script into `DIR` (default `~/.local/bin`) so `nb-secrets` is on your PATH. A symlink, so `git pull` updates it; it never replaces a file or link it did not make, and prints the line to add to your shell if `DIR` is not on your PATH |
 | `doctor` | Check permissions, stray plaintext, leftover temp files, `~/.secrets.env`, Claude Code deny rules (if installed) and git `credential.helper`, without decrypting |
 
 `set`, `delete` and `passwd` re-encrypt the file, so `age` asks for a passphrase again. Use the file's usual one with `set` / `delete`, or the file's passphrase silently changes; `passwd` is the way to change it. The new file is written next to the old one and moved over it only on success, so a failure leaves the original untouched.
