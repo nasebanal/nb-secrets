@@ -77,7 +77,7 @@ nb-secrets set ~/.secrets/deploy.env.age NEW_TOKEN             # add or replace 
 nb-secrets doctor
 ```
 
-With the [`nb` command](https://github.com/nasebanal/nb-cli) (0.15.0 or later) installed, every command above also runs as `nb secrets ...` (`nb` runs `nb-<name>` from your PATH), and `nb -h` lists it: `nb secrets list ~/.secrets/deploy.env.age` is the same as `nb-secrets list ~/.secrets/deploy.env.age`. `nb-secrets` itself needs neither `nb` nor Node.
+With the [`nb` command](https://github.com/nasebanal/nb-cli) (0.15.0 or later) installed, every command above also runs as `nb secrets ...` (`nb` runs `nb-<name>` from your PATH), and `nb -h` lists it: `nb secrets list ~/.secrets/deploy.env.age` is the same as `nb-secrets list ~/.secrets/deploy.env.age`. `nb-secrets` itself needs neither `nb` nor Node. Tab completion (`nb secrets <TAB>`, and the `.age` files after `run` / `list` / `set`) needs one line in `~/.zshrc`, after `compinit`: `source <(nb completion zsh)` (nb 1.1.0 or later; see [Tab completion](https://github.com/nasebanal/nb-cli#tab-completion)). It lists names only: nothing is decrypted.
 
 Moving from a plaintext shell file you already use: encrypt it (`age -p -o ~/.secrets/x.env.age < old.env`), then `nb-secrets compare old.env ~/.secrets/x.env.age` and expect `OK` on every line before you delete the old file.
 
