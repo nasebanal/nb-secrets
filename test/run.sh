@@ -87,6 +87,20 @@ out=$(HOME="$inst/home" "$NBS" --install 2>&1); rc=$?
 check "--install without DIR uses ~/.local/bin" bash -c '[ '"$rc"' -eq 0 ] && [ -L "$1/home/.local/bin/nb-secrets" ]' _ "$inst"
 out=$("$NBS" --install a b 2>&1); rc=$?
 check "--install with too many arguments: usage, exit 1" rc_is 1
+
+echo "uninstall (the link made by --install)"
+out=$("$NBS" --uninstall "$inst/bin" 2>&1); rc=$?
+check "--uninstall removes the link --install made, exit 0" bash -c '[ '"$rc"' -eq 0 ] && [ ! -e "$1/bin/nb-secrets" ] && [ ! -L "$1/bin/nb-secrets" ] && printf "%s" "$2" | grep -q "^Removed "' _ "$inst" "$out"
+out=$("$NBS" --uninstall "$inst/bin" 2>&1); rc=$?
+check "--uninstall with nothing there says so and is not an error" bash -c '[ '"$rc"' -eq 0 ] && printf "%s" "$1" | grep -q "^Nothing to remove"' _ "$out"
+out=$("$NBS" --uninstall "$inst/other" 2>&1); rc=$?
+check "--uninstall never removes a file it did not link" bash -c '[ '"$rc"' -eq 1 ] && [ "$(cat "$1/other/nb-secrets")" = "not ours" ]' _ "$inst"
+out=$("$NBS" --uninstall "$inst/elsewhere" 2>&1); rc=$?
+check "--uninstall never removes another program's link (even a dangling one)" bash -c '[ '"$rc"' -eq 1 ] && [ "$(readlink "$1/elsewhere/nb-secrets")" = /nonexistent/nb-secrets ]' _ "$inst"
+out=$(HOME="$inst/home" "$NBS" --uninstall 2>&1); rc=$?
+check "--uninstall without DIR uses ~/.local/bin" bash -c '[ '"$rc"' -eq 0 ] && [ ! -L "$1/home/.local/bin/nb-secrets" ]' _ "$inst"
+out=$("$NBS" --uninstall a b 2>&1); rc=$?
+check "--uninstall with too many arguments: usage, exit 1" rc_is 1
 out=$("$NBS" -h); 
 check "-h lists --install" bash -c 'printf "%s" "$1" | grep -q -- "--install"' _ "$out"
 
