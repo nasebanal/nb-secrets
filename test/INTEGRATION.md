@@ -23,6 +23,7 @@ Passphrase prompts: use a throw-away one (for example `test`) everywhere, except
 12. Compare: `printf 'export TEST2=<the value you typed>\n' > old.env`, then `$NBS compare old.env "$F"` shows `TEST2  OK`. Delete `old.env`.
 13. Doctor: `$NBS doctor` (with `NB_SECRETS_DIR` still set) is clean for the directory.
 14. Modes: `ls -ld "$NB_SECRETS_DIR"; ls -l "$F"` show `drwx------` and `-rw-------`; no `it.env.age.new` is left.
-15. Clean up: `rm -r "$NB_SECRETS_DIR"; unset NB_SECRETS_DIR`.
+15. Shell: `$NBS shell "$F"` asks for the passphrase once and gives a prompt. In it, `echo ${#TEST2}` prints the value length (not the value) and `$NBS shell "$F"` is refused. Press Ctrl-C at the prompt (you stay in the shell), then `exit`; `echo ${#TEST2}` prints `0`.
+16. Clean up: `rm -r "$NB_SECRETS_DIR"; unset NB_SECRETS_DIR`.
 
 Any step that differs from what is written here is a bug: report it with the step number (never with a value).

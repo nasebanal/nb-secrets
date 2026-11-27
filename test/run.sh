@@ -65,6 +65,29 @@ check "no arguments: usage, exit 1" rc_is 1
 out=$("$NBS" bogus 2>&1); rc=$?
 check "unknown command: exit 1" rc_is 1
 
+echo "help for each command"
+for c in run shell list set delete passwd compare doctor --install --uninstall; do
+  for flag in -h --help; do
+    out=$(cd "$work" && HOME="$work/nohome" "$NBS" "$c" "$flag" 2>/dev/null </dev/null); rc=$?
+    check "$c $flag: its usage and description on stdout, exit 0, no terminal needed" bash -c '[ '"$rc"' -eq 0 ] && printf "%s\n" "$1" | head -1 | grep -qE "^Usage: nb-secrets $2( |$)" && [ "$(printf "%s\n" "$1" | grep -c "^  ")" -ge 1 ]' _ "$out" "$c"
+  done
+done
+check "--install -h / --uninstall -h touch nothing" bash -c '[ ! -e "$1/-h" ] && [ ! -e "$1/--help" ] && [ ! -e "$1/nohome" ]' _ "$work"
+out=$("$NBS" run -h)
+check "run -h shows its option, not the one of list" bash -c 'printf "%s" "$1" | grep -q -- "--only NAME" && ! printf "%s" "$1" | grep -q -- "--stale DAYS"' _ "$out"
+out=$("$NBS" list -h)
+check "list -h shows its option and not another command paragraph" bash -c 'printf "%s" "$1" | grep -q -- "--stale DAYS" && ! printf "%s" "$1" | grep -qE -- "--only|add NAME or replace"' _ "$out"
+# Each description must be there to its last line, and stop before the next one.
+for pair in 'run|the command with empty values.' 'shell|replaces the value from the file.' 'list|also flags variables older than DAYS or undated and exits 1.' 'set|A new file is created if <file.age> does not exist.' 'delete|remove NAME after a y/N confirmation.' 'passwd|manager at once: it is the only key to the file.' 'compare|The old file is executed as shell code' 'doctor|plaintext (credential.helper=store). Exits 1 if anything is flagged.' '--install|somewhere else, it stops and says so. If DIR is not on your PATH it prints the line to add.' '--uninstall|Your encrypted files are not touched.'; do
+  c=${pair%%|*}; last=${pair#*|}
+  out=$("$NBS" "$c" -h); rc=$?
+  check "$c -h: the whole description, nothing after it" bash -c 'printf "%s\n" "$1" | tail -1 | grep -qF -- "$2"' _ "$out" "$last"
+done
+out=$("$NBS" --install -h)
+check "--install -h stops before the --uninstall description" bash -c '! printf "%s" "$1" | grep -q "remove that link"' _ "$out"
+out=$(NB_PLUGIN_NAME="nb secrets" "$NBS" shell -h)
+check "a command help run through nb shows nb secrets" bash -c 'printf "%s" "$1" | head -1 | grep -q "^Usage: nb secrets shell " && ! printf "%s" "$1" | grep -q "nb-secrets"' _ "$out"
+
 echo "install"
 inst="$work/inst"
 out=$("$NBS" --install "$inst/bin" 2>&1); rc=$?
@@ -145,10 +168,43 @@ pty "" "'$NBS' run --only NOPE '$F' -- echo ran"
 check "run --only stops on an unknown name, command not run" bash -c '[ '"$rc"' -ne 0 ] && ! printf "%s" "$1" | grep -qx ran' _ "$out"
 pty "" "SHIM_PW=wrong '$NBS' run '$F' -- echo ran"
 check "run with a wrong passphrase does not run the command" bash -c '[ '"$rc"' -ne 0 ] && ! printf "%s" "$1" | grep -qx ran && printf "%s" "$1" | grep -q "decrypt failed"' _ "$out"
+pty "" "'$NBS' run '$F' -- echo -h"
+check "-h after the command to run reaches that command" bash -c '[ '"$rc"' -eq 0 ] && printf "%s" "$1" | grep -qx -- -h' _ "$out"
 pty "" "'$NBS' run '$F' -- sh -c 'exit 7'"
 check "run returns the command's exit status" rc_is 7
 pty "" "API_TOKEN=outer '$NBS' run '$F' -- true; echo \"after=\${DB_PASSWORD:-gone}\""
 check "run leaves nothing in the calling shell" has "after=gone"
+
+echo "shell"
+# A stand-in for the interactive shell: reports what it was given (lengths and set/unset only).
+cat > "$work/fakeshell" <<'FAKE'
+#!/bin/sh
+echo "label=$NB_SECRETS_ACTIVE db=${DB_PASSWORD:+set} api=${API_TOKEN:-unset} args=$# umask=$(umask)"
+exit "${FAKE_RC:-0}"
+FAKE
+chmod 700 "$work/fakeshell"
+pty "" "umask 022; SHELL='$work/fakeshell' '$NBS' shell '$F'; echo \"after=\${DB_PASSWORD:-gone}\""
+check "shell starts \$SHELL with the variables and the marker, no arguments" has "label=t db=set api=v2 args=0"
+check "shell keeps the caller's umask" has "umask=0022"
+check "shell says how to leave" has "type exit to leave"
+check "shell leaves nothing in the calling shell" has "after=gone"
+check "shell never prints a value" bash -c '! printf "%s" "$1" | grep -qF "$2"' _ "$out" "$SECRET2"
+pty "" "SHELL='$work/fakeshell' '$NBS' shell --only DB_PASSWORD '$F'"
+check "shell --only passes only the named variable" has "db=set api=unset"
+pty "" "FAKE_RC=7 SHELL='$work/fakeshell' '$NBS' shell '$F'"
+check "shell returns the shell's exit status" rc_is 7
+pty "" "SHIM_PW=wrong SHELL='$work/fakeshell' '$NBS' shell '$F'"
+check "shell with a wrong passphrase starts no shell" bash -c '[ '"$rc"' -ne 0 ] && ! printf "%s" "$1" | grep -qE "label=|type exit"' _ "$out"
+pty "" "NB_SECRETS_ACTIVE=other SHELL='$work/fakeshell' '$NBS' shell '$F'"
+check "shell refuses to nest" bash -c '[ '"$rc"' -ne 0 ] && printf "%s" "$1" | grep -q "already in a secrets shell" && ! printf "%s" "$1" | grep -q "label="' _ "$out"
+export ODD="$work/a%n\$(x).env.age"
+cp "$F" "$ODD"
+pty "" "SHELL='$work/fakeshell' '$NBS' shell \"\$ODD\""
+check "shell keeps only plain characters in the marker" has "label=a_n__x_ "
+pty "" "SHELL='$work/fakeshell' '$NBS' shell '$F' extra"
+check "shell takes no command" bash -c '[ '"$rc"' -ne 0 ] && ! printf "%s" "$1" | grep -q "label="' _ "$out"
+out=$(SHELL="$work/fakeshell" "$NBS" shell "$F" 2>&1 </dev/null); rc=$?
+check "shell refuses to run without a terminal" bash -c '[ '"$rc"' -ne 0 ] && ! printf "%s" "$1" | grep -q "label="' _ "$out"
 
 echo "delete"
 pty "n\n" "'$NBS' delete '$F' FROM_PIPE"

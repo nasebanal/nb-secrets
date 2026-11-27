@@ -21,6 +21,7 @@ Plaintext `.env` files and shell profiles are where secrets leak: into a reposit
 
 - **Encrypted at rest**: each secret file is `age -p` (passphrase, scrypt) encrypted, one passphrase per file, kept in your password manager. The plaintext never touches the disk when you create or change a file.
 - **Used by hand**: `nb-secrets run` decrypts in memory, exports the variables to one command only, and leaves nothing in your shell. It refuses to run without an interactive terminal, because the passphrase is asked for there.
+- **A shell for longer tasks**: `nb-secrets shell` asks once and opens a subshell that has the variables until you `exit`. Your current shell is never changed.
 - **No way to print a value**: there is deliberately no `get`. A value on screen ends up in terminal logs and screen shares. To check a value, `compare` its hash with the old source.
 - **Least privilege**: `run --only NAME,...` passes a command just the variables it needs.
 - **Rotation reminders**: `set` stamps each line with the date; `list --stale 90` flags the old and undated ones.
@@ -47,7 +48,7 @@ Plaintext `.env` files and shell profiles are where secrets leak: into a reposit
 1. **A person types the passphrase on an interactive terminal.** Commands that decrypt refuse to run without a tty. Do not work around that (for example by feeding the passphrase from a script): the human step is the protection.
 2. **One passphrase per file, kept in a password manager.** There is no recovery: a lost passphrase is a lost file. Keep the master copy of every value in the password manager; the encrypted files are working copies for pushing values to where they are used.
 3. **The directory is private**: `~/.secrets` mode `700`, files `600` (`nb-secrets doctor` checks it). Do not put plaintext files in it.
-4. **You trust the commands you run with `run`.** They receive the variables in their environment, and any child process they start does too.
+4. **You trust the commands you run with `run`**, and everything you start inside `shell`. They receive the variables in their environment, and any child process they start does too.
 5. **You trust the files you `source`.** A secret file is shell code; `run` and `compare` execute it. Do not use a file you did not write or a value you do not control.
 6. **You understand the [Limits](#limits).** This protects against accidents and casual reads. It does not protect against an attacker who already runs as you.
 
@@ -73,6 +74,7 @@ chmod 600 ~/.secrets/deploy.env.age
 nb-secrets list ~/.secrets/deploy.env.age                      # names and dates, never values
 nb-secrets run ~/.secrets/deploy.env.age -- ./deploy.sh        # the command gets the variables
 nb-secrets run --only API_TOKEN ~/.secrets/deploy.env.age -- ./call-api.sh
+nb-secrets shell ~/.secrets/deploy.env.age                     # a subshell with the variables; exit to leave
 nb-secrets set ~/.secrets/deploy.env.age NEW_TOKEN             # add or replace (the value is typed hidden)
 nb-secrets doctor
 ```
@@ -83,11 +85,12 @@ Moving from a plaintext shell file you already use: encrypt it (`age -p -o ~/.se
 
 ## 📖 Commands
 
-Every command answers `-h`.
+Every command answers `-h` / `--help` (`nb-secrets run -h`) with its own usage; no passphrase is asked. Only the word right after the command counts, so in `run <file.age> -- <command> -h` the `-h` goes to `<command>`.
 
 | Command | What it does |
 |---|---|
 | `run [--only NAME,...] <file.age> -- <command>` | Decrypt in memory and run the command with the variables exported to it only. Stops if decryption fails or the file is empty. `--only` passes just the named variables and stops if one is missing |
+| `shell [--only NAME,...] <file.age>` | Open `$SHELL` as a subshell that has the variables; `exit` drops them. For several commands in a row without retyping the passphrase. Refuses to nest. See [The secrets shell](#the-secrets-shell) |
 | `list [--stale DAYS] [file.age]` | Without a file: the `.age` files in the directory (no passphrase). With a file: variable names and the date each was last written; `--stale` flags older or undated ones and exits 1 |
 | `set <file.age> NAME` | Add or replace one variable. The value is typed hidden, or read from the first line of stdin when piped; never an argument. Creates the file if it does not exist |
 | `delete <file.age> NAME` | Remove one variable after a y/N prompt |
@@ -98,6 +101,18 @@ Every command answers `-h`.
 | `doctor` | Check permissions, stray plaintext, leftover temp files, `~/.secrets.env`, Claude Code deny rules (if installed) and git `credential.helper`, without decrypting |
 
 `set`, `delete` and `passwd` re-encrypt the file, so `age` asks for a passphrase again. Use the file's usual one with `set` / `delete`, or the file's passphrase silently changes; `passwd` is the way to change it. The new file is written next to the old one and moved over it only on success, so a failure leaves the original untouched.
+
+### The secrets shell
+
+`run` gives the variables to one command. `shell` widens that to **everything you run until you `exit`**, including package install scripts, editors and AI coding agents started from it. Prefer `run`; when you use `shell`, pass `--only` where you can, exit when the task is done, and do not start tools in it that have no need for the values.
+
+Your shell's startup files run as usual, so an `export` of the same name in them replaces the value from the file.
+
+`NB_SECRETS_ACTIVE` holds the file's name without `.age` / `.env` (characters other than letters, digits, `.`, `_` and `-` become `_`). To show it in a zsh prompt, add this to `~/.zshrc`, after your prompt theme if you use one:
+
+```bash
+[[ -n $NB_SECRETS_ACTIVE ]] && PROMPT="(🔐 $NB_SECRETS_ACTIVE) $PROMPT"
+```
 
 ## 🗂 File format
 
@@ -118,8 +133,8 @@ export DB_PASSWORD='yyyyyyyy'
 
 Read this before you trust it:
 
-- **It is not a defence against code already running as you.** A process with your privileges can allocate a pseudo-terminal, read your shell's memory, or watch the process environment of a command started with `run`. The terminal requirement and the passphrase stop accidents and casual reads, and they make an unattended read impossible without your passphrase; they do not stop a determined attacker on your account.
-- **Values reach the command in its environment.** Anything that can read that process's environment (same user, `ps eww` on some systems, a crash dump) can see them while it runs.
+- **It is not a defence against code already running as you.** A process with your privileges can allocate a pseudo-terminal, read your shell's memory, or watch the process environment of a command or shell started with `run` / `shell`. The terminal requirement and the passphrase stop accidents and casual reads, and they make an unattended read impossible without your passphrase; they do not stop a determined attacker on your account.
+- **Values reach the command in its environment.** Anything that can read that process's environment (same user, `ps eww` on some systems, a crash dump) can see them while it runs. With `shell`, that lasts until you `exit`.
 - **`age` passphrase mode is only as strong as the passphrase.** Use a long random one from a password manager.
 - **No audit trail, no sharing, no access control.** It is a single-user tool for one machine. For teams use a secrets manager.
 - **Values already leaked stay leaked.** Deleting a repository or rewriting history does not un-leak a value that was once pushed: rotate it.
