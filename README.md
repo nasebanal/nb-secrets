@@ -100,6 +100,8 @@ Every command answers `-h` / `--help` (`nb-secrets run -h`) with its own usage; 
 | `--uninstall [DIR]` | Remove that link from `DIR` (default `~/.local/bin`). It removes only a link that points to this script, never a file or another program's link, and says so when there is nothing to remove. Your encrypted files are not touched. |
 | `doctor` | Check permissions, stray plaintext, leftover temp files, `~/.secrets.env`, Claude Code deny rules (if installed) and git `credential.helper`, without decrypting |
 
+`nb-secrets -h` lists the commands and the options of every command; a command's own options and its full description are in `nb-secrets <command> -h`. There is deliberately no `get`: a value on screen ends up in terminal logs and screen shares (to check a value, compare it with its source with `compare`).
+
 `set`, `delete` and `passwd` re-encrypt the file, so `age` asks for a passphrase again. Use the file's usual one with `set` / `delete`, or the file's passphrase silently changes; `passwd` is the way to change it. The new file is written next to the old one and moved over it only on success, so a failure leaves the original untouched.
 
 ### The secrets shell
