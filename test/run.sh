@@ -150,6 +150,37 @@ check "run returns the command's exit status" rc_is 7
 pty "" "API_TOKEN=outer '$NBS' run '$F' -- true; echo \"after=\${DB_PASSWORD:-gone}\""
 check "run leaves nothing in the calling shell" has "after=gone"
 
+echo "shell"
+# A stand-in for the interactive shell: reports what it was given (lengths and set/unset only).
+cat > "$work/fakeshell" <<'FAKE'
+#!/bin/sh
+echo "label=$NB_SECRETS_ACTIVE db=${DB_PASSWORD:+set} api=${API_TOKEN:-unset} args=$# umask=$(umask)"
+exit "${FAKE_RC:-0}"
+FAKE
+chmod 700 "$work/fakeshell"
+pty "" "umask 022; SHELL='$work/fakeshell' '$NBS' shell '$F'; echo \"after=\${DB_PASSWORD:-gone}\""
+check "shell starts \$SHELL with the variables and the marker, no arguments" has "label=t db=set api=v2 args=0"
+check "shell keeps the caller's umask" has "umask=0022"
+check "shell says how to leave" has "type exit to leave"
+check "shell leaves nothing in the calling shell" has "after=gone"
+check "shell never prints a value" bash -c '! printf "%s" "$1" | grep -qF "$2"' _ "$out" "$SECRET2"
+pty "" "SHELL='$work/fakeshell' '$NBS' shell --only DB_PASSWORD '$F'"
+check "shell --only passes only the named variable" has "db=set api=unset"
+pty "" "FAKE_RC=7 SHELL='$work/fakeshell' '$NBS' shell '$F'"
+check "shell returns the shell's exit status" rc_is 7
+pty "" "SHIM_PW=wrong SHELL='$work/fakeshell' '$NBS' shell '$F'"
+check "shell with a wrong passphrase starts no shell" bash -c '[ '"$rc"' -ne 0 ] && ! printf "%s" "$1" | grep -qE "label=|type exit"' _ "$out"
+pty "" "NB_SECRETS_ACTIVE=other SHELL='$work/fakeshell' '$NBS' shell '$F'"
+check "shell refuses to nest" bash -c '[ '"$rc"' -ne 0 ] && printf "%s" "$1" | grep -q "already in a secrets shell" && ! printf "%s" "$1" | grep -q "label="' _ "$out"
+export ODD="$work/a%n\$(x).env.age"
+cp "$F" "$ODD"
+pty "" "SHELL='$work/fakeshell' '$NBS' shell \"\$ODD\""
+check "shell keeps only plain characters in the marker" has "label=a_n__x_ "
+pty "" "SHELL='$work/fakeshell' '$NBS' shell '$F' extra"
+check "shell takes no command" bash -c '[ '"$rc"' -ne 0 ] && ! printf "%s" "$1" | grep -q "label="' _ "$out"
+out=$(SHELL="$work/fakeshell" "$NBS" shell "$F" 2>&1 </dev/null); rc=$?
+check "shell refuses to run without a terminal" bash -c '[ '"$rc"' -ne 0 ] && ! printf "%s" "$1" | grep -q "label="' _ "$out"
+
 echo "delete"
 pty "n\n" "'$NBS' delete '$F' FROM_PIPE"
 check "delete answered n changes nothing" has "cancelled"
