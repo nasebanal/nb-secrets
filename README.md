@@ -85,7 +85,7 @@ Moving from a plaintext shell file you already use: encrypt it (`age -p -o ~/.se
 
 ## 📖 Commands
 
-Every command answers `-h`.
+Every command answers `-h` / `--help` (`nb-secrets run -h`) with its own usage; no passphrase is asked. Only the word right after the command counts, so in `run <file.age> -- <command> -h` the `-h` goes to `<command>`.
 
 | Command | What it does |
 |---|---|
