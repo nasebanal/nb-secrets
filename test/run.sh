@@ -55,9 +55,13 @@ check "-h prints usage on stdout, exit 0" bash -c '[ '"$rc"' -eq 0 ] && printf "
 check "-h starts with Usage, then the description line (emoji, NASEBANAL Secrets, one line)" bash -c 'printf "%s" "$1" | head -1 | grep -q "^Usage: nb-secrets <command>" && printf "%s" "$1" | grep -q "^🔐 NASEBANAL Secrets - keep secrets in passphrase-encrypted files"' _ "$out"
 check "-h shows Usage, Also runs as nb secrets, the description, Commands and Options in that order" bash -c 'ln() { printf "%s\n" "$1" | grep -n -E "$2" | head -1 | cut -d: -f1; }; u=$(ln "$1" "^Usage:"); a=$(ln "$1" "^Also runs as: nb secrets"); d=$(ln "$1" "NASEBANAL Secrets - "); c=$(ln "$1" "^Commands:"); o=$(ln "$1" "^Options:"); [ -n "$u" ] && [ "$u" -lt "$a" ] && [ "$a" -lt "$d" ] && [ "$d" -lt "$c" ] && [ "$c" -lt "$o" ]' _ "$out"
 out=$(NB_PLUGIN_NAME="nb secrets" "$NBS" -h); rc=$?
-check "run through nb (NB_PLUGIN_NAME): the name shown is nb secrets, with no Also-runs-as line" bash -c 'printf "%s" "$1" | head -1 | grep -q "^Usage: nb secrets <command>" && printf "%s" "$1" | grep -q "^🔐 NASEBANAL Secrets - " && ! printf "%s" "$1" | grep -q "Also runs as" && ! printf "%s" "$1" | grep -q "nb-secrets"' _ "$out"
+check "run through nb (NB_PLUGIN_NAME): the name shown is nb secrets, with no Also-runs-as line" bash -c 'printf "%s" "$1" | head -1 | grep -q "^Usage: nb secrets <command>" && printf "%s" "$1" | grep -q "^🔐 NASEBANAL Secrets - " && ! printf "%s" "$1" | grep -q "Also runs as" && ! printf "%s" "$1" | grep -v "^More: " | grep -q "nb-secrets"' _ "$out"
 out=$(NB_PLUGIN_NAME='"'"'x/y; rm'"'"' "$NBS" -h); rc=$?
 check "an NB_PLUGIN_NAME other than exactly nb secrets is ignored" bash -c 'printf "%s" "$1" | grep -q "^Usage: nb-secrets <command>"' _ "$out"
+out=$("$NBS" -h)
+check "-h is a screen: a line each, no command paragraph, ending with where the rest is" bash -c '[ "$(printf "%s\n" "$1" | wc -l)" -le 30 ] && ! printf "%s" "$1" | grep -qE "decrypt in memory|--complete|--only|--stale" && printf "%s\n" "$1" | tail -2 | head -1 | grep -qF "nb-secrets <command> -h" && printf "%s\n" "$1" | tail -1 | grep -qxF "More: https://github.com/nasebanal/nb-secrets"' _ "$out"
+out=$(NB_PLUGIN_NAME="nb secrets" "$NBS" -h)
+check "through nb, the hint says nb secrets and the address keeps its name" bash -c 'printf "%s" "$1" | grep -qF "nb secrets <command> -h" && printf "%s\n" "$1" | tail -1 | grep -qxF "More: https://github.com/nasebanal/nb-secrets"' _ "$out"
 out=$("$NBS" --version); rc=$?
 check "--version" bash -c 'printf "%s" "$1" | grep -q "^nb-secrets "' _ "$out"
 out=$("$NBS" 2>&1); rc=$?
